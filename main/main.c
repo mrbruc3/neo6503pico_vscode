@@ -50,7 +50,7 @@ uint32_t sample_address()
 {
     uint32_t raw_data = 0;
 
-    gpio_set_dir_masked(GPIO_MASK, GPIO_IN);
+    gpio_set_dir_in_masked(GPIO_MASK);
 
     for (int j=0; j<2; j++){
         // select the correct bus tranceiver
@@ -67,11 +67,44 @@ uint32_t sample_address()
     return raw_data;
 }
 
+uint32_t read_from_proc()
+{
+    gpio_set_dir_in_masked(GPIO_MASK);
+
+    gpio_put(BT_U5_OE, 1);
+    gpio_put(BT_U6_OE, 1);
+    gpio_put(BT_U7_OE, 0);
+
+    // stabilize and sample GPIOs
+    sleep_ms(1);
+    uint32_t gpio_vals = gpio_get_all() & 0xff;
+
+    return gpio_vals;
+}
+
 uint8_t read_from_mem(uint32_t address){
+    
+    //uarts_puts
+
+    printf("R: %x\n", address);
+
+    uint8_t mem[] = {
+        0xa2, 0x01, // 0x0600   ldx #$01  
+        0x86, 0x00, //          stx $00
+    };
+    
+    uint16_t base = 0x6000;
+
     switch (address) {
-        case 0xfffc:    return 0x0F;
-        case 0xfffd:    return 0xFF;
-        default:        return 0xEA; //should be NOP
+        case 0xfffc:    return base & 0xff;
+        case 0xfffd:    return (base >> 8) & 0xff;
+    }
+
+
+
+    if (address >= base && address < base + sizeof(mem)) {
+        printf("from mem\n");
+        return mem[address - base];
     }
 
     return 0xbb;
@@ -80,7 +113,7 @@ uint8_t read_from_mem(uint32_t address){
 uint8_t read_control() {
     uint8_t control = 0;
 
-    control = control | gpio_get(11);
+    control = control | gpio_get(RW_PIN);
 
     return control;
 }
@@ -109,6 +142,13 @@ int main() {
 
     // Set up our UART with the required speed.
     uart_init(UART_ID, BAUD_RATE);
+
+    while (!stdio_usb_connected()){
+       uart_puts(UART_ID, ".\r\n");     
+    }
+    uart_puts(UART_ID, "\r\n");     
+
+    printf("Start over USB\n");
 
     // Set the TX and RX pins by using the function select on the GPIO
     // Set datasheet for more information on function select
@@ -144,7 +184,7 @@ int main() {
     gpio_put(BT_U7_OE, 1);
 
     gpio_init_mask(GPIO_MASK);
-    gpio_set_dir_masked(GPIO_MASK, GPIO_IN);
+    gpio_set_dir_in_masked(GPIO_MASK);
 
 
 
@@ -176,18 +216,28 @@ int main() {
 
         uint32_t sampled_address = sample_address();
         uint8_t control = read_control();
-        uint8_t mem_output = read_from_mem(sampled_address);
-        
-        print_raw_values(sampled_address, "A: ", 16, "");
-        print_raw_values(control, " C: ", 1, "");
-        print_raw_values(mem_output, " D: ", 8, "\r\n");
-               
+        uint8_t mem_output;
+
         //  CLOCK RISE
         // -- doesn't really do anything
         sleep_ms(125);
         set_clock(1);
 
-        simulate_mem_read(mem_output);
+        if (control == 1) {
+            mem_output = read_from_mem(sampled_address);
+            simulate_mem_read(mem_output);
+        }
+        else {
+            mem_output = read_from_proc();
+        }
+
+
+        print_raw_values(sampled_address, "A: ", 16, "");
+        print_raw_values(control, " C: ", 1, "");
+        print_raw_values(mem_output, " D: ", 8, "\r\n");
+
+
+
     }
 
  
