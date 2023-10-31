@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
@@ -31,9 +25,22 @@
 #define RW_PIN 11
 
 
+//#define TIME_DELTA sleep_us(1);
+#define TIME_DELTA asm volatile("nop \nnop \nnop \nnop \n");
+
+//#define TIME_DELTA sleep_ms(125);
+//#define TIME_DELTA_SMALL sleep_us(1);
+
+// 3 nops is current minimum
+#define TIME_DELTA_SMALL asm volatile("nop \nnop \nnop \n");
+
+#define TIME_DELTA_LARGE sleep_ms(1);
+
+uint8_t ram[1024];
+
 void print_raw_values(uint32_t vals, char * pre, int bits, char * post)
 {
-    uart_puts(UART_ID, pre);
+ /*   uart_puts(UART_ID, pre);
     
     for (int i=0; i<bits; i++){
         if (i == 8 || i == 16 || i == 24) {
@@ -41,7 +48,7 @@ void print_raw_values(uint32_t vals, char * pre, int bits, char * post)
         }
         uart_putc_raw(UART_ID, (vals >> i) & 0x1 ? '1' : '0');
     }
-    uart_puts(UART_ID, post);
+    uart_puts(UART_ID, post);*/
 }
 
 #define GPIO_MASK 0xFF
@@ -59,7 +66,7 @@ uint32_t sample_address()
         gpio_put(BT_U7_OE, j == 2 ? 0 : 1);
 
         // stabilize and sample GPIOs
-        sleep_ms(1);
+        TIME_DELTA_SMALL;
         uint32_t gpio_vals = gpio_get_all() & 0xff;
         raw_data = raw_data | (gpio_vals << 8 * j);
     }
@@ -67,7 +74,7 @@ uint32_t sample_address()
     return raw_data;
 }
 
-uint32_t read_from_proc()
+uint32_t read_from_proc(uint32_t address)
 {
     gpio_set_dir_in_masked(GPIO_MASK);
 
@@ -76,34 +83,103 @@ uint32_t read_from_proc()
     gpio_put(BT_U7_OE, 0);
 
     // stabilize and sample GPIOs
-    sleep_ms(1);
+    TIME_DELTA_SMALL;
     uint32_t gpio_vals = gpio_get_all() & 0xff;
+
+    if (address >= 0 && address < sizeof(ram)) {
+        //printf("ram[%x] = %d\n", address, gpio_vals);
+        ram[address] = gpio_vals;
+    }
+
 
     return gpio_vals;
 }
 
 uint8_t read_from_mem(uint32_t address){
     
-    //uarts_puts
-
-    printf("R: %x\n", address);
-
+   
     uint8_t mem[] = {
-        0xa2, 0x01, // 0x0600   ldx #$01  
-        0x86, 0x00, //          stx $00
-    };
-    
-    uint16_t base = 0x6000;
+0x18 ,     
+0xd8      ,
+0xa2, 0x00   ,
+0x86 , 0x00   ,
+0x86 , 0x01   ,
+0x86 , 0x06   ,
+0x86 , 0x07   ,
+0x86 , 0x08   ,
+0xa2 , 0x01   ,
+0x86 , 0x02   ,
+0xa2 , 0x00   ,
+0x86 , 0x03   ,
+0xa2 , 0x03   ,
+0x86 , 0x04   ,
+0xa2 , 0x05   ,
+0x86 , 0x05   ,
+0x18      ,
+0xa5 , 0x00   ,
+0x65 , 0x02   ,
+0x85 , 0x00   ,
+0xa5 , 0x01   ,
+0x65 , 0x03   ,
+0x85 , 0x01   ,
+0xa0 , 0x00   ,
+0xa6 , 0x04   ,
+0xca      ,
+0xd0 , 0x04   ,
+0xa0 , 0x01   ,
+0xa2 , 0x03   ,
+0x86 , 0x04   ,
+0xa6 , 0x05   ,
+0xca      ,
+0xd0 , 0x04   ,
+0xa0 , 0x01   ,
+0xa2 , 0x05   ,
+0x86 , 0x05   ,
+0x18      ,
+0x88      ,
+0xd0 , 0x15   ,
+0x18      ,
+0xa5 , 0x08   ,
+0x65 , 0x00   ,
+0x85 , 0x08   ,
+0xa5 , 0x07   ,
+0x65 , 0x01   ,
+0x85 , 0x07   ,
+0xa5 , 0x06   ,
+0x65 , 0x03   ,
+0xb0 , 0x11   ,
+0x85 , 0x06   ,
+0xa5 , 0x00   ,
+0xc9 , 0xe7   ,
+0xd0 , 0xbc   ,
+0xa5 , 0x01   ,
+0xc9 , 0x03   ,
+0xd0 , 0xb6   ,
+0x4c , 0x73, 0x06,
+0xa2 , 0x00   ,
+0x86 , 0x06   ,
+0x86 , 0x07   ,
+0x86 , 0x08   ,
+0xa0 , 0xaa   ,
+0x84, 0x16, 
+ 0x4c, 0x73, 0x06 
+};
+
+    uint16_t base = 0x600;
 
     switch (address) {
         case 0xfffc:    return base & 0xff;
         case 0xfffd:    return (base >> 8) & 0xff;
     }
 
+    if (address >= 0 && address < sizeof(ram)) {
+        //printf("from ram[%x] = %x\n", address, ram[address]);   
+        return ram[address];
+    }
 
 
     if (address >= base && address < base + sizeof(mem)) {
-        printf("from mem\n");
+        //printf("from rom[%x] = %x\n", address, mem[address - base]);
         return mem[address - base];
     }
 
@@ -127,28 +203,32 @@ void set_clock(int val){
 
 void simulate_mem_read(uint32_t data){
     gpio_set_dir_out_masked(GPIO_MASK);
-    sleep_ms(1);
+    //TIdME_DELTA_SMALL
     gpio_put_masked(GPIO_MASK, data);
 
     // select the cU7 bus tranceiver
     gpio_put(BT_U5_OE, 1); // 1 = disconnect
     gpio_put(BT_U6_OE, 1);
     gpio_put(BT_U7_OE, 0); // 0 = connect
-    sleep_ms(1);
+    TIME_DELTA_SMALL
 }
 
 int main() {
     stdio_usb_init();
 
+    uint64_t start = time_us_64();
+
     // Set up our UART with the required speed.
     uart_init(UART_ID, BAUD_RATE);
 
     while (!stdio_usb_connected()){
-       uart_puts(UART_ID, ".\r\n");     
     }
-    uart_puts(UART_ID, "\r\n");     
 
     printf("Start over USB\n");
+
+    for (int i=0; i<sizeof(ram); i++) {
+        ram[i] = 0xaa;
+    }
 
     // Set the TX and RX pins by using the function select on the GPIO
     // Set datasheet for more information on function select
@@ -191,28 +271,31 @@ int main() {
     gpio_put(RESET_PIN, 0);
 
     for (int i=0; i<10; i++) {
-        sleep_ms(1);
+        TIME_DELTA_LARGE
         set_clock(0);
-        sleep_ms(1);
+        TIME_DELTA_LARGE
         set_clock(1);
     }
 
-    sleep_ms(1);
+    TIME_DELTA_SMALL;
     gpio_put(RESET_PIN, 1);
     // time before clock fall
-    sleep_ms(1);
+    TIME_DELTA_SMALL;
+
+    uint32_t prev_ans = 0;
+    uint64_t clks = 0;
+
 
     uart_puts(UART_ID, "\r\nSTART \r\n");
     while (true) {
-        sleep_ms(125);
         
         // CLOCK FALL
         // - when reading: data lines are sampled
         // - new addr will be generated (after tADS)        
         set_clock(0);
+        clks++;
 
         // forward to when address lines are stable  (min: tADS)
-        sleep_ms(1);
 
         uint32_t sampled_address = sample_address();
         uint8_t control = read_control();
@@ -220,7 +303,7 @@ int main() {
 
         //  CLOCK RISE
         // -- doesn't really do anything
-        sleep_ms(125);
+        TIME_DELTA
         set_clock(1);
 
         if (control == 1) {
@@ -228,13 +311,30 @@ int main() {
             simulate_mem_read(mem_output);
         }
         else {
-            mem_output = read_from_proc();
+            mem_output = read_from_proc(sampled_address);
         }
 
+        uint32_t it = ram[0] + (ram[1] << 8);
+        uint32_t ans = (ram[6] << 16) + (ram[7] << 8) + ram[8];
 
-        print_raw_values(sampled_address, "A: ", 16, "");
-        print_raw_values(control, " C: ", 1, "");
-        print_raw_values(mem_output, " D: ", 8, "\r\n");
+        if (prev_ans != ans) {
+            prev_ans = ans;
+        
+            if (ans == 0 || ans == 233168 || it > 1000) {
+
+            if (ans == 0) {
+                start =  time_us_64();
+                clks = 0;
+            }
+            
+            uint64_t delta = time_us_64() - start;
+            float us = (float)delta / (float)clks;
+
+            printf("%6lld %6lld %3f %3d %6d) A: %04x RW:%c D: %04x\n", 
+                delta, clks,  us, it, ans, sampled_address, control == 1 ? 'r': 'w', mem_output);
+            }
+        }
+
 
 
 
