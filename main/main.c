@@ -26,13 +26,14 @@
 
 
 //#define TIME_DELTA sleep_us(1);
-#define TIME_DELTA asm volatile("nop \nnop \nnop \nnop \n");
-
+//#define TIME_DELTA asm volatile("nop \nnop \nnop \nnop \n");
+#define TIME_DELTA asm volatile("nop \nnop \nnop \nnop \nnop \nnop \nnop \nnop \n");
 //#define TIME_DELTA sleep_ms(125);
 //#define TIME_DELTA_SMALL sleep_us(1);
 
 // 3 nops is current minimum
-#define TIME_DELTA_SMALL asm volatile("nop \nnop \nnop \n");
+//#define TIME_DELTA_SMALL asm volatile("nop \nnop \nnop \n");
+#define TIME_DELTA_SMALL asm volatile("nop \nnop \nnop \nnop \nnop \nnop \n");
 
 #define TIME_DELTA_LARGE sleep_ms(1);
 
@@ -53,52 +54,8 @@ void print_raw_values(uint32_t vals, char * pre, int bits, char * post)
 
 #define GPIO_MASK 0xFF
 
-uint32_t sample_address()
-{
-    uint32_t raw_data = 0;
 
-    gpio_set_dir_in_masked(GPIO_MASK);
-
-    for (int j=0; j<2; j++){
-        // select the correct bus tranceiver
-        gpio_put(BT_U5_OE, j == 0 ? 0 : 1);
-        gpio_put(BT_U6_OE, j == 1 ? 0 : 1);
-        gpio_put(BT_U7_OE, j == 2 ? 0 : 1);
-
-        // stabilize and sample GPIOs
-        TIME_DELTA_SMALL;
-        uint32_t gpio_vals = gpio_get_all() & 0xff;
-        raw_data = raw_data | (gpio_vals << 8 * j);
-    }
-    
-    return raw_data;
-}
-
-uint32_t read_from_proc(uint32_t address)
-{
-    gpio_set_dir_in_masked(GPIO_MASK);
-
-    gpio_put(BT_U5_OE, 1);
-    gpio_put(BT_U6_OE, 1);
-    gpio_put(BT_U7_OE, 0);
-
-    // stabilize and sample GPIOs
-    TIME_DELTA_SMALL;
-    uint32_t gpio_vals = gpio_get_all() & 0xff;
-
-    if (address >= 0 && address < sizeof(ram)) {
-        //printf("ram[%x] = %d\n", address, gpio_vals);
-        ram[address] = gpio_vals;
-    }
-
-
-    return gpio_vals;
-}
-
-uint8_t read_from_mem(uint32_t address){
-    
-   
-    uint8_t mem[] = {
+uint8_t mem[] = {
 0x18 ,     
 0xd8      ,
 0xa2, 0x00   ,
@@ -165,22 +122,66 @@ uint8_t read_from_mem(uint32_t address){
  0x4c, 0x73, 0x06 
 };
 
-    uint16_t base = 0x600;
 
-    switch (address) {
-        case 0xfffc:    return base & 0xff;
-        case 0xfffd:    return (base >> 8) & 0xff;
+
+uint32_t sample_address()
+{
+    uint32_t raw_data = 0;
+
+    //gpio_set_dir_in_masked(GPIO_MASK);
+    gpio_put(BT_U7_OE, 1);
+
+    for (int j=0; j<2; j++){
+        // select the correct bus tranceiver
+        gpio_put(BT_U5_OE, j == 0 ? 0 : 1);
+        gpio_put(BT_U6_OE, j == 1 ? 0 : 1);
+
+        // stabilize and sample GPIOs
+        TIME_DELTA_SMALL;
+        uint32_t gpio_vals = gpio_get_all() & 0xff;
+        raw_data = raw_data | (gpio_vals << 8 * j);
     }
+    
+    return raw_data;
+}
+
+uint32_t read_from_proc(uint32_t address)
+{
+    //gpio_set_dir_in_masked(GPIO_MASK);
+
+    gpio_put(BT_U5_OE, 1);
+    gpio_put(BT_U6_OE, 1);
+    gpio_put(BT_U7_OE, 0);
+
+    // stabilize and sample GPIOs
+    TIME_DELTA_SMALL;
+    uint32_t gpio_vals = gpio_get_all() & 0xff;
+
+    if (address >= 0 && address < sizeof(ram)) {
+        //printf("ram[%x] = %d\n", address, gpio_vals);
+        ram[address] = gpio_vals;
+    }
+
+
+    return gpio_vals;
+}
+
+uint8_t read_from_mem(uint32_t address){
+    const uint16_t base = 0x600;
 
     if (address >= 0 && address < sizeof(ram)) {
         //printf("from ram[%x] = %x\n", address, ram[address]);   
         return ram[address];
     }
 
-
     if (address >= base && address < base + sizeof(mem)) {
         //printf("from rom[%x] = %x\n", address, mem[address - base]);
         return mem[address - base];
+    }
+
+    switch (address) {
+        case 0xfffc:    return base & 0xff;
+        case 0xfffd:    return (base >> 8) & 0xff;
     }
 
     return 0xbb;
@@ -195,26 +196,27 @@ uint8_t read_control() {
 }
 
 
-void set_clock(int val){
+void set_clock(const int val){
     gpio_put(CLK_PIN, val);
-    gpio_put(DEF_LED_PIN, val);
+    //gpio_put(DEF_LED_PIN, val);
 }
-
 
 void simulate_mem_read(uint32_t data){
     gpio_set_dir_out_masked(GPIO_MASK);
-    //TIdME_DELTA_SMALL
     gpio_put_masked(GPIO_MASK, data);
 
     // select the cU7 bus tranceiver
     gpio_put(BT_U5_OE, 1); // 1 = disconnect
     gpio_put(BT_U6_OE, 1);
     gpio_put(BT_U7_OE, 0); // 0 = connect
-    TIME_DELTA_SMALL
+    //TIME_DELTA_SMALL
 }
 
 int main() {
     stdio_usb_init();
+
+    
+
 
     uint64_t start = time_us_64();
 
@@ -229,6 +231,11 @@ int main() {
     for (int i=0; i<sizeof(ram); i++) {
         ram[i] = 0xaa;
     }
+
+    //set_sys_clock_khz(125000, true);
+    //set_sys_clock_khz(32000, true);
+    set_sys_clock_khz(250000, true);
+    //printf("clock: %d\n", get_clock_);
 
     // Set the TX and RX pins by using the function select on the GPIO
     // Set datasheet for more information on function select
@@ -297,13 +304,15 @@ int main() {
 
         // forward to when address lines are stable  (min: tADS)
 
+        gpio_set_dir_in_masked(GPIO_MASK);
+    
+
         uint32_t sampled_address = sample_address();
         uint8_t control = read_control();
         uint8_t mem_output;
 
         //  CLOCK RISE
         // -- doesn't really do anything
-        TIME_DELTA
         set_clock(1);
 
         if (control == 1) {
@@ -313,6 +322,7 @@ int main() {
         else {
             mem_output = read_from_proc(sampled_address);
         }
+
 
         uint32_t it = ram[0] + (ram[1] << 8);
         uint32_t ans = (ram[6] << 16) + (ram[7] << 8) + ram[8];
@@ -334,12 +344,5 @@ int main() {
                 delta, clks,  us, it, ans, sampled_address, control == 1 ? 'r': 'w', mem_output);
             }
         }
-
-
-
-
     }
-
- 
-
 }
