@@ -121,7 +121,7 @@ uint8_t mem[] = {
 uint32_t sample_address()
 {
     uint32_t raw_data = 0;
-
+    uint32_t gpio_vals;
     //gpio_set_dir_in_masked(GPIO_MASK);
     gpio_put(BT_U7_OE, 1);
 
@@ -132,17 +132,21 @@ uint32_t sample_address()
 
         // stabilize and sample GPIOs
         TIME_DELTA_SMALL;
-        uint32_t gpio_vals = gpio_get_all() & 0xff;
-        raw_data = raw_data | (gpio_vals << 8 * j);
+        gpio_vals = gpio_get_all();
+        raw_data = raw_data | ((gpio_vals & 0xff) << 8 * j);
     }
     
     return raw_data;
 }
 
+
+
 uint32_t read_from_proc(uint32_t address)
 {
     //gpio_set_dir_in_masked(GPIO_MASK);
 
+    //gpio_put_masked(0x700, 0x300);
+    
     gpio_put(BT_U5_OE, 1);
     gpio_put(BT_U6_OE, 1);
     gpio_put(BT_U7_OE, 0);
@@ -210,11 +214,10 @@ uint8_t read_from_mem(uint32_t address){
 }
 
 uint8_t read_control() {
-    uint8_t control = 0;
+    return gpio_get(RW_PIN);
 
-    control = control | gpio_get(RW_PIN);
-
-    return control;
+    //return (gpio_vals & (0x1 << RW_PIN));
+    //return gpio_vals & (0x1 << RW_PIN);
 }
 
 
@@ -321,7 +324,6 @@ int main() {
 
         gpio_set_dir_in_masked(GPIO_MASK);
     
-
         uint32_t sampled_address = sample_address();
         uint8_t control = read_control();
         uint8_t mem_output;
@@ -337,7 +339,6 @@ int main() {
         else {
             mem_output = read_from_proc(sampled_address);
         }
-        //TIME_DELTA
 
 
 #ifdef DEBUG
