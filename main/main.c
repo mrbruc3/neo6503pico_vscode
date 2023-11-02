@@ -156,12 +156,12 @@ uint32_t read_from_proc(uint32_t address)
 
     // stabilize and sample GPIOs
     TIME_DELTA_SMALL;
+    
     uint32_t gpio_vals = gpio_get_all() & 0xff;
 
-    if (address >= 0 && address < sizeof(ram)) {
-        //printf("ram[%x] = %d\n", address, gpio_vals);
-        ram[address] = gpio_vals;
-    }
+    // NOTE no range check (all addressing are backed by RAM!)
+    ram[address] = gpio_vals;
+    
 
 
     return gpio_vals;
@@ -180,6 +180,9 @@ uint8_t read_from_mem(uint32_t address){
         }
         else if (address == 0x0401)
         {
+            clks = 74602;
+
+
             uint64_t delta = time_us_64() - start;
             float mhz = ((float)clks / (float)delta);
             uint32_t it = ram[0] + (ram[1] << 8);
@@ -297,7 +300,7 @@ int main() {
         // - when reading: data lines are sampled
         // - new addr will be generated (after tADS)        
         set_clock(0);
-        clks++;
+        //clks++;
 
         // forward to when address lines are stable  (min: tADS)
 
