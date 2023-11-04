@@ -115,13 +115,13 @@ uint32_t sample_address()
     uint32_t raw_data;
     uint32_t gpio_vals;
 
-    gpio_put(BT_U7_OE_PIN, 1);
-    gpio_put(BT_U5_OE_PIN, 1);
+    gpio_set_mask(BT_U7_OE_PIN_MASK | BT_U5_OE_PIN_MASK);
+
     gpio_put(BT_U6_OE_PIN, 0);
 
     // stabilize and sample GPIOs
     // do set clock vs nops
-    TIME_DELTA_SMALL
+    TIME_DELTA
     gpio_vals = gpio_get_all();
 
     raw_data = ((gpio_vals & 0xff) << 8 );
@@ -133,7 +133,7 @@ uint32_t sample_address()
     gpio_put(BT_U7_OE_PIN, 1);
     // stabilize and sample GPIOs
     
-    TIME_DELTA_SMALL
+    TIME_DELTA
     gpio_vals = gpio_get_all();
     raw_data = raw_data | ((gpio_vals & 0xff) );
 
@@ -147,7 +147,7 @@ uint32_t read_from_proc(uint32_t address)
     gpio_put(BT_U7_OE_PIN, 0);
 
     // stabilize and sample GPIOs
-    TIME_DELTA_SMALL
+    TIME_DELTA
 
     uint32_t gpio_vals = gpio_get_all() & 0xff;
 
