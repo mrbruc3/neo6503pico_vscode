@@ -2,35 +2,28 @@
 
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
-//#include "hardware/uart.h"
 
 //#define SLOW
 //#define DEBUG
 //#define COUNT_CLOCK
 
-
-#define UART_ID uart0
-#define BAUD_RATE 115200
-/*
-// We are using pins 0 and 1, but see the GPIO function select table in the
-// datasheet for information on which other pins can be used.
-#define UART_TX_PIN 28
-#define UART_RX_PIN 29
-*/
-
-#define DEF_LED_PIN 23
+#define PROGRAM_BASE 0x600
 
 #define CLK_PIN 21
-
 #define RESET_PIN 26
-
-#define BT_U5_OE 8
-#define BT_U6_OE 9
-#define BT_U7_OE 10
-
+#define BT_U5_OE_PIN 8
+#define BT_U6_OE_PIN 9
+#define BT_U7_OE_PIN 10
 #define RW_PIN 11
 
+#define CLK_PIN_MASK (1 << CLK_PIN)
+#define RESET_PIN_MASK (1 << RESET_PIN)
+#define BT_U5_OE_PIN_MASK (1 << BT_U5_OE_PIN)
+#define BT_U6_OE_PIN_MASK (1 << BT_U6_OE_PIN)
+#define BT_U7_OE_PIN_MASK (1 << BT_U7_OE_PIN)
+#define RW_PIN_MASK (1 << RW_PIN)
 
+#define GPIO_PINS_MASK 0xFF
 
 #ifdef SLOW
 #define TIME_DELTA sleep_ms(250);
@@ -39,16 +32,11 @@
 #else
 #define TIME_DELTA asm volatile("nop \nnop \nnop \nnop \nnop \nnop \nnop \nnop \n");
 #define TIME_DELTA_SMALL asm volatile("nop \nnop \nnop \nnop \n");
-#define TIME_DELTA_LARGE 
+#define TIME_DELTA_LARGE sleep_us(1);
 #endif
 
-
-
 uint8_t ram[64 * 1024];
-
-#define GPIO_MASK 0xFF
-
-uint64_t clks;
+uint64_t clks; 
 uint64_t start;
 
 uint8_t mem[] = {
@@ -130,42 +118,45 @@ uint32_t sample_address()
     uint32_t raw_data;
     uint32_t gpio_vals;
 
-    //gpio_set_mask(0x500);
-    gpio_put(BT_U7_OE, 1);
-    gpio_put(BT_U5_OE, 1);
-    
-    gpio_put(BT_U6_OE, 0);
+    gpio_put(BT_U7_OE_PIN, 1);
+    //gpio_put(BT_U5_OE_PIN, 1);    // read from proc and simulate_read both already do this
+    gpio_put(BT_U6_OE_PIN, 0);
 
     // stabilize and sample GPIOs
     // do set clock vs nops
     asm volatile("nop \nnop \nnop \nnop \n");
-    //TIME_DELTA_SMALL
+    asm volatile("nop \nnop \nnop \nnop \n");
     gpio_vals = gpio_get_all();
-       
+
     // select the correct bus tranceiver
-    gpio_put(BT_U5_OE, 0);
-    gpio_put(BT_U6_OE, 1);
+    gpio_put(BT_U5_OE_PIN, 0);
+    gpio_put(BT_U6_OE_PIN, 1);
+
     raw_data = ((gpio_vals & 0xff) << 8 );
+    
     // stabilize and sample GPIOs
-    // only one nops because we also do some calculations after the last gpio_put
+    // only two nops because we also do some calculations after the last gpio_put
     
     asm volatile("nop \n");
+    asm volatile("nop \n");
+    asm volatile("nop \n");
+    asm volatile("nop \n");
+
     gpio_vals = gpio_get_all();
     raw_data = raw_data | ((gpio_vals & 0xff) );
 
-    
     return raw_data;
 }
 
 uint32_t read_from_proc(uint32_t address)
 {
-  
-    gpio_put(BT_U5_OE, 1);
-    //gpio_put(BT_U6_OE, 1); // already done in sample_address
-    gpio_put(BT_U7_OE, 0);
+    gpio_put(BT_U5_OE_PIN, 1);
+    //gpio_put(BT_U6_OE_PIN, 1); // already done in sample_address
+    gpio_put(BT_U7_OE_PIN, 0);
 
     // stabilize and sample GPIOs
-    TIME_DELTA_SMALL;
+    asm volatile("nop \nnop \nnop \nnop \n");
+    asm volatile("nop \nnop \nnop \nnop \n");
 
     uint32_t gpio_vals = gpio_get_all() & 0xff;
 
@@ -176,12 +167,12 @@ uint32_t read_from_proc(uint32_t address)
 }
 
 
-#define BASE 0x600
+
 
 uint8_t read_from_mem(uint32_t address){
     if (address == 0x0400)
         {
-            printf("start\n");
+            printf("start measurement\n");
             clks = 0;
             start = time_us_64();
             return 0;
@@ -196,6 +187,7 @@ uint8_t read_from_mem(uint32_t address){
 #else         
             clks = 74602;
 #endif 
+
             uint64_t delta = time_us_64() - start;
             float mhz = ((float)clks / (float)delta);
             uint32_t it = ram[0] + (ram[1] << 8);
@@ -212,7 +204,6 @@ uint8_t read_from_mem(uint32_t address){
             }
             else {
                 printf("SUCCESS\n");
-                gpio_put(DEF_LED_PIN, 1);
 
                 while(true) {
                     sleep_ms(1000);
@@ -234,19 +225,15 @@ void simulate_mem_read(uint32_t data){
     // set data on databus and switch tranceivers with one read
     gpio_set_dir_out_masked(0x7FF);
     gpio_put_masked(0x7FF, data | 0x300);
-    // 0x300 -> u5 and u6 
-    //gpio_put_all(data | 0x300 | RESET_PIN);
+    // 0x300 -> u5 and u6 are set
 }
 
 int main() {
-    //set_sys_clock_khz(125000, true);
     set_sys_clock_khz(250000, true);
-    // 300Mhz does not seem to work on my neo6502 (or with this setup)
 
     stdio_init_all();
 
     printf("\nStart over USB and uart\n");
-
 
     // init memory
     for (int i=0; i<sizeof(ram); i++) {
@@ -255,130 +242,51 @@ int main() {
 
     // copy program into mem
     for (int i=0; i<sizeof(mem); i++) {
-        ram[i + BASE] = mem[i];
+        ram[i + PROGRAM_BASE] = mem[i];
     }
  
     // init reset vector
-    ram[0xfffc] = BASE & 0xff;
-    ram[0xfffd] = (BASE >> 8) & 0xff;
+    ram[0xfffc] = PROGRAM_BASE & 0xff;
+    ram[0xfffd] = (PROGRAM_BASE >> 8) & 0xff;
 
+    gpio_init_mask(CLK_PIN_MASK | RESET_PIN_MASK | BT_U5_OE_PIN_MASK | BT_U6_OE_PIN_MASK |
+        BT_U7_OE_PIN_MASK | RW_PIN_MASK | GPIO_PINS_MASK);
 
-    gpio_init(DEF_LED_PIN);
-    gpio_set_dir(DEF_LED_PIN, GPIO_OUT);
+    gpio_set_dir_out_masked(CLK_PIN_MASK | RESET_PIN_MASK | BT_U5_OE_PIN_MASK | 
+        BT_U6_OE_PIN_MASK | BT_U7_OE_PIN_MASK);
 
-    gpio_init(CLK_PIN);
-    gpio_set_dir(CLK_PIN, GPIO_OUT);
-
-    gpio_init(RW_PIN);
-    gpio_set_dir(RW_PIN, GPIO_IN);
-
-    gpio_init(22);
-    gpio_set_dir(22, GPIO_IN);
-    gpio_pull_up(22);
-
-    gpio_init(RESET_PIN);
-    gpio_set_dir(26, GPIO_OUT);
-
-    gpio_init(BT_U5_OE);
-    gpio_init(BT_U6_OE);
-    gpio_init(BT_U7_OE);
-
-    gpio_set_dir(BT_U5_OE, GPIO_OUT);
-    gpio_set_dir(BT_U6_OE, GPIO_OUT);
-    gpio_set_dir(BT_U7_OE, GPIO_OUT);
-
-    gpio_put(BT_U5_OE, 1);
-    gpio_put(BT_U6_OE, 1);
-    gpio_put(BT_U7_OE, 1);
-
-    gpio_init_mask(GPIO_MASK);
-    gpio_set_dir_in_masked(GPIO_MASK);
-
-/*
-    gpio_init(24);
-    gpio_set_dir(24, GPIO_OUT);
-
-
-    // select the correct bus tranceiver
-    gpio_put(0, 1); // GPIO 1
-
-    //gpio_set_mask(0x500);
-    gpio_put(BT_U7_OE, 1);
-
-    gpio_put(BT_U5_OE, 1);
-    gpio_put(BT_U6_OE, 0);
-    
-    gpio_put(CLK_PIN, 1);   // GPIO 21
-    */
-    /*
-#define LR 23
-#define LL 24    
-    
-    gpio_put(LR, 0); // 23
-    gpio_put(LL, 0);
-
-    // assert: leds zijn nu uit (yes)
-    
-    gpio_set_mask((1 << LR) | (1 << LL));
-    
-    // assert: leds zijn allebei aan (ja) 
-
-    gpio_set_mask((1 << LR) | (1 << 0));
-
-    // assert: leds zijn nog steeds allebei aan (ja)
-
-    //gpio_put(LR, 1); // 23
-    //gpio_put(LL, 1);
-
-
-    //24
-    //25
-
-
-    printf("gpio debug\n");
-    while(true){
-        sleep_ms(100);
-    }
-
-*/
-
-
+    gpio_set_mask(BT_U5_OE_PIN_MASK | BT_U6_OE_PIN_MASK | BT_U7_OE_PIN_MASK);
 
     gpio_put(RESET_PIN, 0);
 
-    for (int i=0; i<10; i++) {
+    for (int i=0; i<2; i++) {
         TIME_DELTA_LARGE
         set_clock(0);
         TIME_DELTA_LARGE
         set_clock(1);
     }
 
-    TIME_DELTA_SMALL
+    TIME_DELTA_LARGE
     gpio_put(RESET_PIN, 1);
-    // time before clock fall
-    TIME_DELTA_SMALL
-
-    uint8_t mem_output;
+    TIME_DELTA_LARGE
 
     while (true) {
         // CLOCK FALL
-        // - when reading: data lines are sampled
-        // - new addr will be generated (after tADS)        
         set_clock(0);
-#ifdef COUNT_CLOCK        
+#ifdef COUNT_CLOCK             
         clks++;
-#endif
-        // forward to when address lines are stable  (min: tADS)
+#endif        
 
-        gpio_set_dir_in_masked(GPIO_MASK);
+        gpio_set_dir_in_masked(GPIO_PINS_MASK);
 
         uint32_t sampled_address = sample_address();
         uint8_t control = read_control();
 
         //  CLOCK RISE
-        // -- doesn't really do anything
         set_clock(1);
         
+        uint8_t mem_output;
+
         if (control == 1) {
             mem_output = read_from_mem(sampled_address);
             simulate_mem_read(mem_output);
@@ -387,8 +295,8 @@ int main() {
             mem_output = read_from_proc(sampled_address);
         }
 
-        TIME_DELTA_LARGE
 #ifdef DEBUG
+        TIME_DELTA_LARGE
         printf("CLK: %6lld A: %04x RW:%c D: %04x\n", 
                 clks,  sampled_address, control == 1 ? 'r': 'w', mem_output);
             
