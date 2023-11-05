@@ -166,17 +166,13 @@ int main() {
 
     while (true) {
         // CLOCK FALL
-        //gpio_clr_mask(CLK_PIN_MASK);
 #ifdef COUNT_CLOCK             
         clks++;
 #endif        
-        
-
         uint32_t sampled_address;
         uint32_t gpio_vals;
         
         gpio_set_mask(BT_U7_OE_PIN_MASK | BT_U5_OE_PIN_MASK);
-        //gpio_clr_mask(BT_U6_OE_PIN_MASK | CLK_PIN_MASK);
         gpio_clr_mask(BT_U6_OE_PIN_MASK | CLK_PIN_MASK);
         gpio_set_dir_in_masked(GPIO_PINS_MASK);
 
@@ -187,8 +183,8 @@ int main() {
         gpio_vals = gpio_get_all();
 
         // select the correct bus tranceiver
-        gpio_put(BT_U5_OE_PIN, 0);
-        gpio_put(BT_U6_OE_PIN, 1);
+        gpio_set_mask(BT_U7_OE_PIN_MASK | BT_U6_OE_PIN_MASK);
+        gpio_clr_mask(BT_U5_OE_PIN_MASK);
 
         sampled_address = ((gpio_vals & 0xff) << 8 );
         
@@ -203,10 +199,8 @@ int main() {
         control = (gpio_vals & RW_PIN_MASK);
 
         gpio_set_mask(BT_U6_OE_PIN_MASK | BT_U5_OE_PIN_MASK | CLK_PIN_MASK);
-        gpio_put(BT_U7_OE_PIN, 0);        
+        gpio_clr_mask(BT_U7_OE_PIN_MASK);        
         //  CLOCK RISE
-
-        
 
         uint8_t mem_output;
 
@@ -251,14 +245,10 @@ int main() {
                 
             mem_output =  ram[sampled_address];
 
-
-            //
             gpio_set_dir_out_masked(GPIO_PINS_MASK);
-            
             gpio_put_masked(0x0FF, mem_output);
         }
         else {
-            
             // stabilize and sample GPIOs
             asm volatile("nop \nnop \nnop \n");
             
@@ -267,7 +257,6 @@ int main() {
             // NOTE no range check (all addressing are backed by RAM!)
             ram[sampled_address] = gpio_vals;
             mem_output = gpio_vals;
-    
         }
 
 #ifdef DEBUG
