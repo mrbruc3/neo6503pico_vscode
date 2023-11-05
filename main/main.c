@@ -166,21 +166,24 @@ int main() {
 
     while (true) {
         // CLOCK FALL
-        set_clock(0);
+        //gpio_clr_mask(CLK_PIN_MASK);
 #ifdef COUNT_CLOCK             
         clks++;
 #endif        
-        gpio_set_dir_in_masked(GPIO_PINS_MASK);
+        
 
         uint32_t sampled_address;
         uint32_t gpio_vals;
-
+        
         gpio_set_mask(BT_U7_OE_PIN_MASK | BT_U5_OE_PIN_MASK);
-        gpio_put(BT_U6_OE_PIN, 0);
+        //gpio_clr_mask(BT_U6_OE_PIN_MASK | CLK_PIN_MASK);
+        gpio_clr_mask(BT_U6_OE_PIN_MASK | CLK_PIN_MASK);
+        gpio_set_dir_in_masked(GPIO_PINS_MASK);
 
         // stabilize and sample GPIOs
         // do set clock vs nops
-        asm volatile("nop \nnop \nnop \nnop \n");
+        asm volatile("nop \nnop \nnop \n");
+        asm volatile("nop \nnop \n");
         gpio_vals = gpio_get_all();
 
         // select the correct bus tranceiver
