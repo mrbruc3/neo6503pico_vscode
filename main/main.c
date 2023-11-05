@@ -199,11 +199,11 @@ int main() {
 
         control = (gpio_vals & RW_PIN_MASK);
 
-        gpio_set_mask(BT_U6_OE_PIN_MASK | BT_U5_OE_PIN_MASK);
-        gpio_put(BT_U7_OE_PIN, 0);
+        gpio_set_mask(BT_U6_OE_PIN_MASK | BT_U5_OE_PIN_MASK | CLK_PIN_MASK);
+        gpio_put(BT_U7_OE_PIN, 0);        
         //  CLOCK RISE
 
-        set_clock(1);
+        
 
         uint8_t mem_output;
 
