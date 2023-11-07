@@ -35,10 +35,11 @@
 #define TIME_DELTA_LARGE sleep_us(1);
 #endif
 
-
 uint64_t clks; 
 uint64_t start;
 
+// solve euler website problem #1
+// solution in range $6-$8
 uint8_t mem[] = {
 0xae, 0x00, 0x04,
 0x18 ,     
@@ -104,18 +105,12 @@ uint8_t mem[] = {
 0x86 , 0x08   ,
 0xa0 , 0xaa   ,
 0xae, 0x00, 0x05,
-0x4c, 0x76, 0x06 
+0x4c, 0x76, 0x06 ,
 };
 
 
 void set_clock(const int val){
     gpio_put(CLK_PIN, val);
-}
-
-void simulate_mem_read(uint32_t data){
-    // set data on databus and switch tranceivers with one read
-    
-    // 0x300 -> u5 and u6 are set
 }
 
 int main() {
@@ -136,7 +131,8 @@ int main() {
     for (int i=0; i<sizeof(mem); i++) {
         ram[i + PROGRAM_BASE] = mem[i];
     }
- 
+
+
     // init reset vector
     ram[0xfffc] = PROGRAM_BASE & 0xff;
     ram[0xfffd] = (PROGRAM_BASE >> 8) & 0xff;
@@ -199,7 +195,7 @@ int main() {
         control = (gpio_vals & RW_PIN_MASK);
 
         gpio_set_mask(BT_U6_OE_PIN_MASK | BT_U5_OE_PIN_MASK | CLK_PIN_MASK);
-        gpio_clr_mask(BT_U7_OE_PIN_MASK);        
+        gpio_clr_mask(BT_U7_OE_PIN_MASK);
         //  CLOCK RISE
 
         uint8_t mem_output;
