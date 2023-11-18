@@ -3,9 +3,10 @@
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
 
-#include "rom.h"
+//#include "rom.h"
 
 #include "chip_cia.h"
+#include "chip_rom.h"
 
 //#define SLOW
 //#define DEBUG
@@ -41,11 +42,14 @@ uint64_t clks;
 uint64_t start;
 
 #define CIA_1_BASE 0xdc00
-#define CIA_1_TOP 0xdcff
 #define CIA_2_BASE 0xdd00
-#define CIA_2_TOP 0xddff
 
 #define CIA_RANGE 0xff
+
+#define KERNAL_BASE  0xE000
+#define KERNAL_RANGE 0x2000
+#define KERNAL_END   0xFFFF
+
 
 struct bus_device {
     uint32_t address_start;
@@ -60,6 +64,8 @@ struct bus_device {
 struct bus_device bus_device_list[] = {
     {CIA_1_BASE, CIA_RANGE, 0, "CIA1", &write_to_cia, &read_from_cia},
     {CIA_2_BASE, CIA_RANGE, 1, "CIA2", &write_to_cia, &read_from_cia},
+    {KERNAL_BASE, KERNAL_RANGE, 0, "KERNAL-ROM", NULL, &read_from_rom},
+
 };
 
 void set_clock(const int val){
@@ -118,11 +124,6 @@ bool io_visible = 1;
 #define PROC_REG 0x1
 #define PROC_DIR 0x0
 
-#define CIA_1_BASE 0xdc00
-#define CIA_1_TOP 0xdcff
-#define CIA_2_BASE 0xdd00
-#define CIA_2_TOP 0xddff
-
 #define CID_BASE 0xd400
 #define CID_TOP  0xd7ff
 
@@ -145,10 +146,7 @@ uint32_t write_to_cid(uint32_t rel_address, uint32_t val) {
 
 }
 
-#define BASE 0x600
 
-#define KERNAL_BASE 0xE000
-#define KERNAL_END  0xFFFF
 
 
 uint8_t bus_transaction(uint32_t address, uint32_t read)
@@ -202,17 +200,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             return 0;
         }
     }
-    else if (address >= KERNAL_BASE && address <= KERNAL_END)
-    {
-        if (!read) {
-            printf("not supported address write in KERNAL: 0x%04x\n", address);
-            wait();
-        }
-        else {
-            return kernal_rom[address - KERNAL_BASE];
-        }
-    }
-
+    // try to map address to a bus devices
     for (int i=0; i<sizeof(bus_device_list)/sizeof(bus_device_list[0]); i++) {
         // continue of this is not the device
         if (!(address >= bus_device_list[i].address_start 
@@ -220,10 +208,15 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             continue;
         }
 
-        printf("found transaction to device %s on address 0x%04x %d\n", 
-            bus_device_list[i].label, address, i);
+        //printf("found transaction to device %s on address 0x%04x %d\n", 
+        //    bus_device_list[i].label, address, i);
 
         if (!read) {
+            if (bus_device_list[i].write_to_device == NULL) {
+                printf("writing not supported by component at address 0x%04x\n", address);
+                wait();
+            }
+
             bus_device_list[i].write_to_device(
                 bus_device_list[i].index, 
                 address - bus_device_list[i].address_start,

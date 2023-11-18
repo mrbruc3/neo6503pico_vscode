@@ -43,7 +43,11 @@ target_compile_definitions(reference PRIVATE
 ) 
 
 
-add_executable(c64 c64.c chip_cia.c chip_cia.h)
+add_executable(c64 
+        c64.c 
+        c64_def.h 
+        chip_cia.c chip_cia.h 
+        chip_rom.c chip_rom.h)
 
 target_link_libraries(c64 pico_stdlib )
 
