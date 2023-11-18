@@ -3,8 +3,8 @@
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
 
-//#define SLOW
-//#define DEBUG
+#define SLOW
+#define DEBUG
 
 #define CLK_PIN 21
 #define RESET_PIN 26

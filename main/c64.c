@@ -137,168 +137,147 @@ uint32_t write_to_cid(uint32_t rel_address, uint32_t val) {
 
 }
 
-uint32_t read_from_proc(uint32_t address)
-{
-    gpio_put(BT_U5_OE_PIN, 1);
-    gpio_put(BT_U6_OE_PIN, 1);
-    gpio_put(BT_U7_OE_PIN, 0);
-
-    // stabilize and sample GPIOs
-    TIME_DELTA
-
-    uint32_t gpio_vals = gpio_get_all() & 0xff;
-
-    if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
-        // processor port registers
-        // NOTE no range check (all addressing are backed by RAM!)
-        ram[address] = gpio_vals;
-        return gpio_vals;
-    }
-    else if (address >= VIC_BASE && address <= VIC_TOP) {
-        printf("write to VIC\n");
-        ram[address] = gpio_vals;
-        return gpio_vals;
-    }
-    else if (address >= CIA_1_BASE && address <= CIA_1_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cia(1, address - CIA_1_BASE, gpio_vals);
-    }
-    else if (address >= CIA_2_BASE && address <= CIA_2_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cia(2, address - CIA_2_BASE, gpio_vals);
-    }
-    else if (address >= CID_BASE && address <= CID_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cid(address - CID_BASE, gpio_vals);
-    }
-
-    switch (address) {
-        case PROC_DIR: 
-            printf("write to proc reg\n");
-            if ((gpio_vals & 0xff) != 0x2f) {
-                printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
-                wait();
-            }
-            else {
-                //
-            }
-
-            return 0;
-        case PROC_REG:  
-            printf("write to proc reg\n");
-            if ((gpio_vals & 0x7) != 0x07) {
-                printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
-                wait();
-            }
-            else {
-                kernal_rom_visible = 1;
-                basic_rom_visible = 1;
-                io_visible = 1;
-            }
-
-            // ignore writes to datasette 
-            return 0;
-        
-    }
-}
-
-uint32_t bus_transaction(uint32_t address, uint32_t write)
-{
-    gpio_put(BT_U5_OE_PIN, 1);
-    gpio_put(BT_U6_OE_PIN, 1);
-    gpio_put(BT_U7_OE_PIN, 0);
-
-    // stabilize and sample GPIOs
-    TIME_DELTA
-
-    uint32_t gpio_vals = gpio_get_all() & 0xff;
-
-    if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
-        // processor port registers
-        // NOTE no range check (all addressing are backed by RAM!)
-        ram[address] = gpio_vals;
-        return gpio_vals;
-    }
-    else if (address >= VIC_BASE && address <= VIC_TOP) {
-        printf("write to VIC\n");
-        ram[address] = gpio_vals;
-        return gpio_vals;
-    }
-    else if (address >= CIA_1_BASE && address <= CIA_1_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cia(1, address - CIA_1_BASE, gpio_vals);
-    }
-    else if (address >= CIA_2_BASE && address <= CIA_2_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cia(2, address - CIA_2_BASE, gpio_vals);
-    }
-    else if (address >= CID_BASE && address <= CID_TOP) {
-        ram[address] = gpio_vals;
-        return write_to_cid(address - CID_BASE, gpio_vals);
-    }
-
-    switch (address) {
-        case PROC_DIR: 
-            printf("write to proc reg\n");
-            if ((gpio_vals & 0xff) != 0x2f) {
-                printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
-                wait();
-            }
-            else {
-                //
-            }
-
-            return 0;
-        case PROC_REG:  
-            printf("write to proc reg\n");
-            if ((gpio_vals & 0x7) != 0x07) {
-                printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
-                wait();
-            }
-            else {
-                kernal_rom_visible = 1;
-                basic_rom_visible = 1;
-                io_visible = 1;
-            }
-
-            // ignore writes to datasette 
-            return 0;
-        
-    }
-    
-    
-    printf("writes not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
-    wait();
-
-    return gpio_vals;
-}
-
-
 #define BASE 0x600
 
 #define KERNAL_BASE 0xE000
 #define KERNAL_END  0xFFFF
 
 
+uint32_t bus_transaction(uint32_t address, uint32_t read)
+{
+    gpio_put(BT_U5_OE_PIN, 1);
+    gpio_put(BT_U6_OE_PIN, 1);
+    gpio_put(BT_U7_OE_PIN, 0);
 
+    // stabilize and sample GPIOs
+    TIME_DELTA
 
-uint8_t read_from_mem(uint32_t address){
-    
-    if (address >= KERNAL_BASE && address <= KERNAL_END)
-    {
-        return kernal_rom[address - KERNAL_BASE];
+    uint32_t gpio_vals;
+
+    if (!read) {
+         gpio_vals = gpio_get_all() & 0xff;
     }
 
-    if (address > 0x1 && address <= 0x9fff)
-    {
-        return ram[address];
+    if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
+        if (!read) {
+            // processor port registers
+            // NOTE no range check (all addressing are backed by RAM!)
+            ram[address] = gpio_vals;
+            return gpio_vals;
+        }
+        else {
+            return ram[address];
+        }
     }
-    printf("address not supported for reading: 0x%4x\n", address);
+    else if (address >= VIC_BASE && address <= VIC_TOP) {
+        if (!read) {
+            printf("write to VIC\n");
+            ram[address] = gpio_vals;
+            return gpio_vals;
+        }
+        else {
+            printf("not supported address read: 0x%04xx\n", address);
+            wait();
+            return 0;
+        }
+    }
+    else if (address >= CIA_1_BASE && address <= CIA_1_TOP) {
+        if (!read) {
+            ram[address] = gpio_vals;
+            return write_to_cia(1, address - CIA_1_BASE, gpio_vals);
+        }
+        else {
+            printf("not supported address read CIA1: 0x%04xx\n", address);
+            wait();
+            return 0;
+        }
+    }
+    else if (address >= CIA_2_BASE && address <= CIA_2_TOP) {
+        if (!read) {
+            ram[address] = gpio_vals;
+            return write_to_cia(2, address - CIA_2_BASE, gpio_vals);
+        }
+        else {
+            printf("not supported address read CIA2: 0x%04xx\n", address);
+            wait();
+            return 0;
+        }
+    }
+    else if (address >= CID_BASE && address <= CID_TOP) {
+        if (!read) {
+            ram[address] = gpio_vals;
+            return write_to_cid(address - CID_BASE, gpio_vals);
+        }
+        else {
+            printf("not supported address read: 0x%04xx\n", address);
+            wait();
+            return 0;
+        }
+    }
+    else if (address >= KERNAL_BASE && address <= KERNAL_END)
+    {
+        if (!read) {
+            printf("not supported address write in KERNAL: 0x%04x\n", address);
+            wait();
+        }
+        else {
+            return kernal_rom[address - KERNAL_BASE];
+        }
+    }
+
+
+    switch (address) {
+        case PROC_DIR: 
+            if (!read) {
+                printf("write to proc reg\n");
+                if ((gpio_vals & 0xff) != 0x2f) {
+                    printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
+                    wait();
+                }
+                else {
+                    //
+                }
+            }
+            else {
+                printf("not supported address read: 0x%04xx\n", address);
+                wait();
+                return 0;
+            }
+            return 0;
+        case PROC_REG:  
+            if (!read) {
+                printf("write to proc reg\n");
+                if ((gpio_vals & 0x7) != 0x07) {
+                    printf("this proc write not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
+                    wait();
+                }
+                else {
+                    kernal_rom_visible = 1;
+                    basic_rom_visible = 1;
+                    io_visible = 1;
+                }
+
+                // ignore writes to datasette 
+                return 0;
+            }
+            else {
+                printf("not supported address read: 0x%04xx\n", address);
+                wait();
+                return 0;
+            }
+    }
     
+    if (!read) {
+        printf("writes not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
+    }
+    else {
+        printf("read not supported to address 0x%04x (value: 0x%02x)\n", address, gpio_vals);
+    }
     wait();
 
-    return 0;
+    return gpio_vals;
 }
+
 
 uint8_t read_control() {
     return gpio_get(RW_PIN);
@@ -358,19 +337,32 @@ int main() {
         
         uint8_t mem_output;
 
-        if (control == 1) {
-            mem_output = read_from_mem(sampled_address);
+
+
+        if (control) {
+            mem_output = bus_transaction(sampled_address, control);
             simulate_mem_read(mem_output);
         }
         else {
-            mem_output = read_from_proc(sampled_address);
+            mem_output = bus_transaction(sampled_address, control);
         }
+
 
 #ifdef DEBUG
         TIME_DELTA_LARGE
-        printf("CLK: %6lld A: %04x RW:%c D: %02x\n", 
-                clks,  sampled_address, control == 1 ? 'r': 'w', mem_output);
+        printf("CLK: %6lld A: %04x RW:%c ", 
+                clks,  sampled_address, control ? 'r': 'w');
             
+#endif
+
+#ifdef DEBUG
+        TIME_DELTA_LARGE
+        //printf("CLK: %6lld A: %04x RW:%c D: %02x\n", 
+        //            clks,  sampled_address, control == 1 ? 'r': 'w', mem_output);
+
+        printf("%02x\n", mem_output);
+        
+
 #endif
     }
 }
