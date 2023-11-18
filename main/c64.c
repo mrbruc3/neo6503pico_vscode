@@ -8,7 +8,7 @@
 #include "chip_cia.h"
 
 //#define SLOW
-#define DEBUG
+//#define DEBUG
 
 #define CLK_PIN 21
 #define RESET_PIN 26
@@ -98,6 +98,8 @@ uint32_t sample_address()
 }
 
 void wait(){
+    printf("halt at clock cycle %lld\n", clks);
+
     while(true) {
         sleep_ms(1000);
     }
@@ -169,9 +171,11 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             // processor port registers
             // NOTE no range check (all addressing are backed by RAM!)
             ram[address] = gpio_vals;
+            //printf("write to memory 0x%04x, 0x%02x\n", address, gpio_vals);
             return gpio_vals;
         }
         else {
+            //printf("read from memory 0x%04x, 0x%02x\n", address, ram[address]);
             return ram[address];
         }
     }
