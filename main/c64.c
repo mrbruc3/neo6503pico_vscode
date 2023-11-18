@@ -41,15 +41,14 @@ uint8_t ram[64 * 1024];
 uint64_t clks; 
 uint64_t start;
 
-#define CIA_1_BASE 0xdc00
-#define CIA_2_BASE 0xdd00
+#define CIA_1_BASE  0xDC00
+#define CIA_2_BASE  0xDD00
 
-#define CIA_RANGE 0xff
+#define CIA_RANGE   0xFF
 
-#define KERNAL_BASE  0xE000
-#define KERNAL_RANGE 0x2000
-#define KERNAL_END   0xFFFF
-
+#define KERNAL_BASE 0xE000
+#define BASIC_BASE  0xA000
+#define ROM_RANGE   0x2000
 
 struct bus_device {
     uint32_t address_start;
@@ -64,7 +63,8 @@ struct bus_device {
 struct bus_device bus_device_list[] = {
     {CIA_1_BASE, CIA_RANGE, 0, "CIA1", &write_to_cia, &read_from_cia},
     {CIA_2_BASE, CIA_RANGE, 1, "CIA2", &write_to_cia, &read_from_cia},
-    {KERNAL_BASE, KERNAL_RANGE, 0, "KERNAL-ROM", NULL, &read_from_rom},
+    {KERNAL_BASE, ROM_RANGE, 0, "KERNAL-ROM", NULL, &read_from_rom},
+    {BASIC_BASE, ROM_RANGE, 1, "BASIC-ROM", NULL, &read_from_rom},
 
 };
 
