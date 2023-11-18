@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "chip_cia.h": "c",
+        "stdio.h": "c"
+    }
+}

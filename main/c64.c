@@ -52,13 +52,14 @@ struct bus_device {
     uint32_t address_range;
     uint32_t index;
     char * label;
-    void (*write_to_device)(uint32_t cia_id, uint32_t rel_address, uint32_t val);
+    void (*write_to_device)(uint32_t cia_id, uint32_t rel_address, uint8_t val);
+    uint8_t (*read_from_device)(uint32_t cia_id, uint32_t rel_address);
 };
 
 
 struct bus_device bus_device_list[] = {
-    {CIA_1_BASE, CIA_RANGE, 0, "CIA1", &write_to_cia},
-    {CIA_2_BASE, CIA_RANGE, 1, "CIA2", &write_to_cia},
+    {CIA_1_BASE, CIA_RANGE, 0, "CIA1", &write_to_cia, &read_from_cia},
+    {CIA_2_BASE, CIA_RANGE, 1, "CIA2", &write_to_cia, &read_from_cia},
 };
 
 void set_clock(const int val){
@@ -148,7 +149,7 @@ uint32_t write_to_cid(uint32_t rel_address, uint32_t val) {
 #define KERNAL_END  0xFFFF
 
 
-uint32_t bus_transaction(uint32_t address, uint32_t read)
+uint8_t bus_transaction(uint32_t address, uint32_t read)
 {
     gpio_put(BT_U5_OE_PIN, 1);
     gpio_put(BT_U6_OE_PIN, 1);
@@ -185,33 +186,7 @@ uint32_t bus_transaction(uint32_t address, uint32_t read)
             wait();
             return 0;
         }
-    }/*
-    else if (address >= CIA_1_BASE && address <= CIA_1_TOP) {
-        if (!read) {
-            ram[address] = gpio_vals;
-            write_to_cia(1, address - CIA_1_BASE, gpio_vals);
-
-            return gpio_vals;
-        }
-        else {
-            printf("not supported address read CIA1: 0x%04xx\n", address);
-            wait();
-            return 0;
-        }
     }
-    else if (address >= CIA_2_BASE && address <= CIA_2_TOP) {
-        if (!read) {
-            ram[address] = gpio_vals;
-            write_to_cia(2, address - CIA_2_BASE, gpio_vals);
-
-            return gpio_vals;
-        }
-        else {
-            printf("not supported address read CIA2: 0x%04xx\n", address);
-            wait();
-            return 0;
-        }
-    }*/
     else if (address >= CID_BASE && address <= CID_TOP) {
         if (!read) {
             ram[address] = gpio_vals;
@@ -249,9 +224,13 @@ uint32_t bus_transaction(uint32_t address, uint32_t read)
                 bus_device_list[i].index, 
                 address - bus_device_list[i].address_start,
                 gpio_vals);
+
+            return gpio_vals;
         }
         else {
-            printf("reads not supported with bus_device_list\n");
+            return bus_device_list[i].read_from_device(
+                bus_device_list[i].index, 
+                address - bus_device_list[i].address_start);
             wait();
         }
 
@@ -333,6 +312,8 @@ int main() {
     for (int i=0; i<sizeof(ram); i++) {
         ram[i] = 0xff;
     }
+
+    cia_init();
 
     gpio_init_mask(CLK_PIN_MASK | RESET_PIN_MASK | BT_U5_OE_PIN_MASK | BT_U6_OE_PIN_MASK |
         BT_U7_OE_PIN_MASK | RW_PIN_MASK | GPIO_PINS_MASK);
