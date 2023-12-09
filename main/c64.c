@@ -178,20 +178,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
          gpio_vals = gpio_get_all() & 0xff;
     }
 
-    /*if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
-        if (!read) {
-            // processor port registers
-            // NOTE no range check (all addressing are backed by RAM!)
-            ram[address] = gpio_vals;
-            //printf("write to memory 0x%04x, 0x%02x\n", address, gpio_vals);
-            return gpio_vals;
-        }
-        else {
-            //printf("read from memory 0x%04x, 0x%02x\n", address, ram[address]);
-            return ram[address];
-        }
-    }
-    else*/ if (address >= CID_BASE && address <= CID_TOP) {
+   if (address >= CID_BASE && address <= CID_TOP) {
         if (!read) {
             ram[address] = gpio_vals;
             return write_to_cid(address - CID_BASE, gpio_vals);
