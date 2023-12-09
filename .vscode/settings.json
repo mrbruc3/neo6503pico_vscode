@@ -2,6 +2,8 @@
     "files.associations": {
         "chip_cia.h": "c",
         "stdio.h": "c",
-        "c64_def.h": "c"
+        "c64_def.h": "c",
+        "type_traits": "c",
+        "chip_vic.h": "c"
     }
 }

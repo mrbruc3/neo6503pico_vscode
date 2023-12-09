@@ -7,6 +7,7 @@
 
 #include "chip_cia.h"
 #include "chip_rom.h"
+#include "chip_vic.h"
 
 //#define SLOW
 //#define DEBUG
@@ -50,6 +51,10 @@ uint64_t start;
 #define BASIC_BASE  0xA000
 #define ROM_RANGE   0x2000
 
+
+#define VIC_BASE        0xd000
+#define VIC_RANGE       0x0400    
+
 struct bus_device {
     uint32_t address_start;
     uint32_t address_range;
@@ -61,10 +66,11 @@ struct bus_device {
 
 
 struct bus_device bus_device_list[] = {
-    {CIA_1_BASE, CIA_RANGE, 0, "CIA1", &write_to_cia, &read_from_cia},
-    {CIA_2_BASE, CIA_RANGE, 1, "CIA2", &write_to_cia, &read_from_cia},
+    {CIA_1_BASE, CIA_RANGE,  0, "CIA1",       &write_to_cia, &read_from_cia},
+    {CIA_2_BASE, CIA_RANGE,  1, "CIA2",       &write_to_cia, &read_from_cia},
     {KERNAL_BASE, ROM_RANGE, 0, "KERNAL-ROM", &write_to_rom, &read_from_rom},
-    {BASIC_BASE, ROM_RANGE, 1, "BASIC-ROM", &write_to_rom, &read_from_rom},
+    {BASIC_BASE, ROM_RANGE,  1, "BASIC-ROM",  &write_to_rom, &read_from_rom},
+    {VIC_BASE, VIC_RANGE,    0, "VIC-II"   ,  &write_to_vic, &read_from_vic},
 
 };
 
@@ -114,8 +120,7 @@ void wait(){
 
 #define PROC_PORT_TOP   0x1
 #define LOWER_RAM_TOP   0x9fff
-#define VIC_BASE        0xd000    
-#define VIC_TOP         0xd3ff
+
 
 bool kernal_rom_visible = 1;
 bool basic_rom_visible = 1;
@@ -177,7 +182,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             return ram[address];
         }
     }
-    else if (address >= VIC_BASE && address <= VIC_TOP) {
+    /*else if (address >= VIC_BASE && address <= VIC_TOP) {
         if (!read) {
             printf("write to VIC, 0x%04x = 0x%02x\n", address, gpio_vals);
             ram[address] = gpio_vals;
@@ -188,7 +193,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             wait();
             return 0;
         }
-    }
+    }*/
     else if (address >= CID_BASE && address <= CID_TOP) {
         if (!read) {
             ram[address] = gpio_vals;
