@@ -8,14 +8,28 @@
 
 #include "rom.h"
 
+
+extern bool debug;
+
 uint8_t rom_ram[ROM_COUNT][0x2000]; // 8 KB
 
 uint8_t read_from_rom(uint32_t rom_id, uint32_t rel_address) {
     switch(rom_id) {
         case 0: 
+            if (debug) {
+                printf("read from kernal rom 0x%04x\n", rel_address);
+            }
+
             return kernal_rom[rel_address];
+
         case 1: 
-            printf("read from basic rom 0x%04x\n", rel_address);
+            if (rel_address == 0x564) {
+                debug = true;
+            }
+            
+            if (debug) {
+                printf("read from basic rom 0x%04x\n", rel_address);
+            }
             return basic_rom[rel_address];
         default:
             printf("trying to read from rom %d - not implemented\n", rom_id);

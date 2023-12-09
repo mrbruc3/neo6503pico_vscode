@@ -62,6 +62,7 @@ uint64_t start;
 #define COLOR_RAM_BASE       0xd800
 #define COLOR_RAM_RANGE      0x0400
 
+bool debug = false;
 
 struct bus_device {
     uint32_t address_start;
@@ -361,19 +362,22 @@ int main() {
 
 
 #ifdef DEBUG
-        TIME_DELTA_LARGE
-        printf("CLK: %6lld A: %04x RW:%c ", 
-                clks,  sampled_address, control ? 'r': 'w');
+        //if (debug) {
+        //TIME_DELTA_LARGE
+        //printf("CLK: %6lld A: %04x RW:%c ", 
+        //        clks,  sampled_address, control ? 'r': 'w');
+        //}
             
 #endif
 
 #ifdef DEBUG
-        TIME_DELTA_LARGE
-        //printf("CLK: %6lld A: %04x RW:%c D: %02x\n", 
-        //            clks,  sampled_address, control == 1 ? 'r': 'w', mem_output);
+        if (debug) {
+        //TIME_DELTA_LARGE
+        printf("CLK: %6lld A: %04x RW:%c D: %02x\n", 
+                    clks,  sampled_address, control == 1 ? 'r': 'w', mem_output);
 
-        printf("%02x\n", mem_output);
-        
+        //printf("%02x\n", mem_output);
+        }
 
 #endif
     }
