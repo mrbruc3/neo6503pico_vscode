@@ -47,7 +47,9 @@ add_executable(c64
         c64.c 
         c64_def.h 
         chip_cia.c chip_cia.h 
-        chip_rom.c chip_rom.h)
+        chip_vic.c chip_vic.h
+        chip_rom.c chip_rom.h
+        chip_ram.c chip_ram.h)
 
 target_link_libraries(c64 pico_stdlib )
 

@@ -7,6 +7,7 @@
 
 #include "chip_cia.h"
 #include "chip_rom.h"
+#include "chip_ram.h"
 #include "chip_vic.h"
 
 //#define SLOW
@@ -42,6 +43,9 @@ uint8_t ram[64 * 1024];
 uint64_t clks; 
 uint64_t start;
 
+#define LOWER_RAM_BASE  0x2
+#define LOWER_RAM_RANGE (0xA000 - LOWER_RAM_BASE)
+
 #define CIA_1_BASE  0xDC00
 #define CIA_2_BASE  0xDD00
 
@@ -55,6 +59,10 @@ uint64_t start;
 #define VIC_BASE        0xd000
 #define VIC_RANGE       0x0400    
 
+#define COLOR_RAM_BASE       0xd800
+#define COLOR_RAM_RANGE      0x0400
+
+
 struct bus_device {
     uint32_t address_start;
     uint32_t address_range;
@@ -66,12 +74,13 @@ struct bus_device {
 
 
 struct bus_device bus_device_list[] = {
-    {CIA_1_BASE, CIA_RANGE,  0, "CIA1",       &write_to_cia, &read_from_cia},
-    {CIA_2_BASE, CIA_RANGE,  1, "CIA2",       &write_to_cia, &read_from_cia},
-    {KERNAL_BASE, ROM_RANGE, 0, "KERNAL-ROM", &write_to_rom, &read_from_rom},
-    {BASIC_BASE, ROM_RANGE,  1, "BASIC-ROM",  &write_to_rom, &read_from_rom},
-    {VIC_BASE, VIC_RANGE,    0, "VIC-II"   ,  &write_to_vic, &read_from_vic},
-
+    {LOWER_RAM_BASE, LOWER_RAM_RANGE,   0, "RAM1",       &write_to_ram, &read_from_ram},
+    {CIA_1_BASE, CIA_RANGE,             0, "CIA1",       &write_to_cia, &read_from_cia},
+    {CIA_2_BASE, CIA_RANGE,             1, "CIA2",       &write_to_cia, &read_from_cia},
+    {KERNAL_BASE, ROM_RANGE,            0, "KERNAL-ROM", &write_to_rom, &read_from_rom},
+    {BASIC_BASE, ROM_RANGE,             1, "BASIC-ROM",  &write_to_rom, &read_from_rom},
+    {VIC_BASE, VIC_RANGE,               0, "VIC-II"   ,  &write_to_vic, &read_from_vic},
+    {COLOR_RAM_BASE, COLOR_RAM_RANGE,   1, "COLOR-RAM",  &write_to_ram, &read_from_ram},
 };
 
 void set_clock(const int val){
@@ -118,8 +127,7 @@ void wait(){
 }
 
 
-#define PROC_PORT_TOP   0x1
-#define LOWER_RAM_TOP   0x9fff
+
 
 
 bool kernal_rom_visible = 1;
@@ -169,7 +177,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
          gpio_vals = gpio_get_all() & 0xff;
     }
 
-    if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
+    /*if (address > PROC_PORT_TOP && address <= LOWER_RAM_TOP) {
         if (!read) {
             // processor port registers
             // NOTE no range check (all addressing are backed by RAM!)
@@ -182,19 +190,7 @@ uint8_t bus_transaction(uint32_t address, uint32_t read)
             return ram[address];
         }
     }
-    /*else if (address >= VIC_BASE && address <= VIC_TOP) {
-        if (!read) {
-            printf("write to VIC, 0x%04x = 0x%02x\n", address, gpio_vals);
-            ram[address] = gpio_vals;
-            return gpio_vals;
-        }
-        else {
-            printf("not supported address read: 0x%04xx\n", address);
-            wait();
-            return 0;
-        }
-    }*/
-    else if (address >= CID_BASE && address <= CID_TOP) {
+    else*/ if (address >= CID_BASE && address <= CID_TOP) {
         if (!read) {
             ram[address] = gpio_vals;
             return write_to_cid(address - CID_BASE, gpio_vals);

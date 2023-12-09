@@ -4,6 +4,7 @@
         "stdio.h": "c",
         "c64_def.h": "c",
         "type_traits": "c",
-        "chip_vic.h": "c"
+        "chip_vic.h": "c",
+        "chip_ram.h": "c"
     }
 }
