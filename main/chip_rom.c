@@ -24,7 +24,7 @@ uint8_t read_from_rom(uint32_t rom_id, uint32_t rel_address) {
 
         case 1: 
             if (rel_address == 0x564) {
-                debug = true;
+                //debug = true;
             }
             
             if (debug) {
